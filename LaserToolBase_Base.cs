@@ -27,6 +27,8 @@ namespace Cheetah.LaserTools
         bool IsWelder => Tool is IMyShipWelder;
         bool IsGrinder => Tool is IMyShipGrinder;
         bool IsDrill => Tool is IMyShipDrill;
+        bool NeedsInventoryCasheRefresh = true;
+        int ConnectedGrids = 0;
         protected float WorkCoefficient => MyShipGrinderConstants.GRINDER_COOLDOWN_IN_MILISECONDS * 0.001f;
         protected float GrinderSpeed => MyAPIGateway.Session.GrinderSpeedMultiplier * MyShipGrinderConstants.GRINDER_AMOUNT_PER_SECOND * WorkCoefficient / 4;
         protected float WelderSpeed => MyAPIGateway.Session.WelderSpeedMultiplier * 2 * WorkCoefficient / 4; // 2 is WELDER_AMOUNT_PER_SECOND from MyShipWelder.cs
@@ -213,6 +215,12 @@ namespace Cheetah.LaserTools
                 SyncBeamLength.GotValueFromServer -= Tool.UpdateVisual;
                 SyncDistanceMode.GotValueFromServer -= Tool.UpdateVisual;
                 SyncSpeedMultiplier.GotValueFromServer -= Tool.UpdateVisual;
+
+                Tool.CubeGrid.OnBlockAdded -= gridBlockChanged;
+                Tool.CubeGrid.OnBlockRemoved -= gridBlockChanged;
+                Tool.CubeGrid.OnBlockIntegrityChanged -= gridBlockChanged;
+                Tool.CubeGrid.OnBlockOwnershipChanged -= gridOwnershipChanged;
+
                 SyncBeamLength.Close();
                 SyncDistanceMode.Close();
                 SyncSpeedMultiplier.Close();
@@ -223,6 +231,16 @@ namespace Cheetah.LaserTools
             }
         }
         #endregion
+
+        private void gridBlockChanged(IMySlimBlock trash)
+        {
+            NeedsInventoryCasheRefresh = true;
+        }
+
+        private void gridOwnershipChanged(IMyEntity trash)
+        {
+            NeedsInventoryCasheRefresh = true;
+        }
 
         public override void UpdateOnceBeforeFrame()
         {
@@ -235,6 +253,10 @@ namespace Cheetah.LaserTools
                     return;
                 }
                 ToolCargo = Tool.GetInventory();
+                Tool.CubeGrid.OnBlockAdded += gridBlockChanged;
+                Tool.CubeGrid.OnBlockRemoved += gridBlockChanged;
+                Tool.CubeGrid.OnBlockIntegrityChanged += gridBlockChanged;
+                Tool.CubeGrid.OnBlockOwnershipChanged += gridOwnershipChanged;
 
                 SyncBeamLength = new AutoSet<float>(Tool, "BeamLength", 1, Checker: val => val >= MinBeamLengthBlocks && val <= MaxBeamLengthBlocks);
                 SyncDistanceMode = new AutoSet<bool>(Tool, "DistanceBasedMode");

@@ -70,28 +70,25 @@ namespace Cheetah.LaserTools
         {
             //UnbuiltBlocks.Clear();
             if (Blocks.Count == 0) return;
-            Blocks = Blocks.OrderByDescending(x => Vector3D.DistanceSquared(x.GetPosition(), Tool.GetPosition())).ToList();
+            Blocks = Blocks.OrderBy(x => Vector3D.DistanceSquared(x.GetPosition(), Tool.GetPosition())).ToList();
             float SpeedRatio = WelderSpeed * ticks * SpeedMultiplier;
             float BoneFixSpeed = WelderBoneRepairSpeed * ticks;
             
-            foreach (IMySlimBlock Block in Blocks)
+            IMySlimBlock Block = Blocks.Last();
+
+            if (Block.CubeGrid.Physics?.Enabled == true)
             {
-                if (Block.CubeGrid.Physics?.Enabled == true)
+                bool welded = Weld(Block, SpeedRatio, BoneFixSpeed);
+                if (!welded)
                 {
-                    bool welded = Weld(Block, SpeedRatio, BoneFixSpeed);
-                    if (!welded)
-                    {
-                        var missing = Block.ReadMissingComponents();
-                        if (!ToolCargo.PullAny(OnboardInventoryOwners, missing))
-                            UnbuiltBlocks.Add(Block);
-                    }
-                    else break;
+                    var missing = Block.ReadMissingComponents();
+                    if (!ToolCargo.PullAny(OnboardInventoryOwners, missing))
+                        UnbuiltBlocks.Add(Block);
                 }
-                else
-                {
-                    Place(Block);
-                    break;
-                }
+            }
+            else
+            {
+                Place(Block);
             }
         }
 
@@ -100,8 +97,8 @@ namespace Cheetah.LaserTools
             //if (Block.IsFullIntegrity && !Block.HasDeformation) return;
             if (Block.CanContinueBuild(ToolCargo) || MyAPIGateway.Session.CreativeMode)
             {
-				Block.IncreaseMountLevel(SpeedRatio, Welder.OwnerId, ToolCargo, BoneFixSpeed, false);
                 Block.MoveItemsToConstructionStockpile(ToolCargo);
+                Block.IncreaseMountLevel(SpeedRatio, Welder.OwnerId, ToolCargo, BoneFixSpeed, false);
                 return true;
             }
             else if (Block.HasDeformation)
