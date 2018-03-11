@@ -15,7 +15,6 @@ namespace Cheetah.LaserTools
 
         protected override void ProcessGrid(IMyCubeGrid TargetGrid, int ticks)
         {
-            if (TargetGrid.EntityId == ToolGrid.EntityId) return;
             List<IMySlimBlock> Blocks = new List<IMySlimBlock>();
             List<LineD> RayGrid = new List<LineD> { new LineD(BeamStart, BeamEnd) };
             if (!DistanceMode)
@@ -43,6 +42,7 @@ namespace Cheetah.LaserTools
 
         void Grind(IMySlimBlock Block, float SpeedRatio)
         {
+            if (Block.CubeGrid == Tool.CubeGrid) return;
             Block.DecreaseMountLevel(SpeedRatio, ToolCargo, useDefaultDeconstructEfficiency: true);
             Block.MoveItemsFromConstructionStockpile(ToolCargo);
             Block.DoDamage(0, VRage.Utils.MyStringHash.GetOrCompute("Grind"), true, null, Tool.EntityId);

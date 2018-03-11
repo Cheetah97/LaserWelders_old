@@ -51,7 +51,7 @@ namespace Cheetah.LaserTools
 
             foreach (IMyCubeGrid Grid in Grids)
             {
-                //if (Grid.EntityId == ToolGrid.EntityId) continue;
+                if (Grid.EntityId == ToolGrid.EntityId) continue;
                 try
                 {
                     ProcessGrid(Grid, ticks);
@@ -70,8 +70,7 @@ namespace Cheetah.LaserTools
 
             foreach (IMyFloatingObject Flobj in Flobjes)
             {
-                if ((double)ToolCargo.CurrentVolume / (double)ToolCargo.MaxVolume < 0.75)
-                    ToolCargo.PickupItem(Flobj);
+                ToolCargo.PickupItem(Flobj);
             }
 
             /*if (Tool is IMyShipDrill)
@@ -131,10 +130,18 @@ namespace Cheetah.LaserTools
             }
             if (Tool is IMyShipWelder && InventoryUpdateTicks >= SessionCore.InventoryRebuildSkipTicks)
             {
+                int count = MyAPIGateway.GridGroups.GetGroup(Tool.CubeGrid, GridLinkTypeEnum.Physical).Count;
+
+                if (count != ConnectedGrids)
+                {
+                    NeedsInventoryCasheRefresh = true;
+                    ConnectedGrids = count;
+                }
+
                 InventoryUpdateTicks = 0;
-                BuildInventoryCache();
             }
 
+            BuildInventoryCache();
             Watch.Stop();
             if (LastRunTimes.Count >= RunTimeCacheSize) LastRunTimes.Dequeue();
             LastRunTimes.Enqueue(1000 * (Watch.ElapsedTicks / System.Diagnostics.Stopwatch.Frequency));
@@ -167,24 +174,31 @@ namespace Cheetah.LaserTools
         /// </summary>
         void BuildInventoryCache()
         {
-            OnboardInventoryOwners.Clear();
-            if (!(Tool.IsFunctional && Tool.UseConveyorSystem)) return;
-            //SessionCore.DebugWrite($"{Tool.CustomName}.BuildInventoryCache()", "Rebuilding cache...", IsExcessive: true);
-            List<IMyTerminalBlock> trash = new List<IMyTerminalBlock>();
-            OnboardInventoryOwners.Add(Tool);
-            Func<IMyTerminalBlock, bool> Puller = (Block) =>
+            if (Tool.IsToolWorking() && Tool.UseConveyorSystem && NeedsInventoryCasheRefresh)
             {
-                if (Block == null) return false;
-                if (!Block.HasPlayerAccess(Tool.OwnerId) || !Block.HasInventory) return false;
-                if (Block == Tool) return false;
-                if (Block.IsOfType<IMyCargoContainer>() || Block.IsOfType<IMyAssembler>() || Block.IsOfType<IMyShipConnector>() || Block.IsOfType<IMyCollector>())
+                NeedsInventoryCasheRefresh = false;
+                OnboardInventoryOwners.Clear();
+                OnboardInventoryOwners.Add(Tool);
+                Func<IMyTerminalBlock, bool> Puller = (Block) =>
                 {
-                    IMyInventory Inventory = Block.GetInventories().First();
-                    if (Inventory.IsConnectedTo(ToolCargo)) OnboardInventoryOwners.Add(Block);
-                }
-                return false;
-            };
-            Term.GetBlocksOfType(trash, Puller);
+                    if (Block == null) return false;
+                    if (!Block.HasPlayerAccess(Tool.OwnerId)) return false;
+                    if (!Block.HasInventory) return false;
+                    if (Block == Tool) return false;
+                    if (Block is IMyCargoContainer || Block is IMyAssembler || Block is IMyShipConnector || Block is IMyCollector)
+                    {
+                        List<IMyInventory> inventoryList = Block.GetInventories();
+                        if (inventoryList.Count > 0 && inventoryList[0].IsConnectedTo(ToolCargo))
+                        {
+                            OnboardInventoryOwners.Add(Block);
+                        }
+                    }
+
+                    return false;
+                };
+
+                Term.GetBlocksOfType(new List<IMyTerminalBlock>(), Puller);
+            }
         }
 
         void ComplainMissing(Dictionary<IMySlimBlock, Dictionary<string, int>> MissingPerBlock)

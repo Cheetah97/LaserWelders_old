@@ -19,7 +19,7 @@ namespace Cheetah.LaserTools
         /// <summary>
         /// How many ticks to skip between BuildInventoryCache() calls.
         /// </summary>
-        public static int InventoryRebuildSkipTicks { get; } = 300;
+        public static int InventoryRebuildSkipTicks { get; } = 1000;
         public const float TickLengthMs = 1000 / 60;
         public const string ModName = "LaserWelders.";
         public const uint ModID = 927381544;
